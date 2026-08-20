@@ -1,11 +1,11 @@
 [project]
 name = "distance-to-default"
 version = "0.1.0"
-description = "Replace with a one-line project description."
+description = "Distance-to-default and implied PD for a public firm via the structural Merton model."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "YOUR_NAME" }]
+authors = [{ name = "Davi Liberato" }]
 dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
