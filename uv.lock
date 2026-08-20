@@ -465,7 +465,7 @@ wheels = [
 ]
 
 [[package]]
-name = "distancia-ao-default"
+name = "distance-to-default"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

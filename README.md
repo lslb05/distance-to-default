@@ -1,104 +1,105 @@
-# distancia-ao-default
+# distance-to-default
 
-Distância-ao-default e PD implícita (1 ano) de uma firma pública, via modelo
-estrutural de Merton — o equity tratado como uma call sobre o valor dos
-ativos da firma, exatamente como uma opção.
+Distance-to-default and implied PD (1 year) for a public firm, via the
+structural Merton model — equity treated as a call on the firm's asset
+value, exactly like an option.
 
-## O problema
+## The problem
 
-Rating de agência é caixa-preta e atualiza devagar. Um classificador
-estatístico genérico sobre dado tabular de terceiro nem sempre generaliza
-pra firma real. O modelo de Merton (base do KMV, usado por mesa de risco de
-crédito de verdade) faz outra coisa: deriva probabilidade de default da
-estrutura de capital e da vol de mercado do próprio equity — dado que
-qualquer firma pública já disponibiliza.
+Agency ratings are a black box and update slowly. A generic statistical
+classifier over third-party tabular data doesn't always generalize to a real
+firm. The Merton model (the basis of KMV, used by real credit risk desks)
+does something else: it derives default probability from the capital
+structure and the market vol of the equity itself — data any public firm
+already discloses.
 
-## Resultado
+## Result
 
 ```console
-$ uv run python -m distancia_ao_default avaliar --ticker F
-campo,valor
+$ uv run python -m distance_to_default evaluate --ticker F
+field,value
 equity,57800198736.82
-vol_equity,0.373805
-passivo,253180000000.00
-taxa_livre_risco,0.051000
-valor_ativos,298383480893.35
-vol_ativos,0.072506
-distancia_ao_default,2.9329
-pd_implicita,0.001679
+equity_vol,0.373805
+liabilities,253180000000.00
+risk_free_rate,0.051000
+asset_value,298383480893.35
+asset_vol,0.072506
+distance_to_default,2.9329
+implied_pd,0.001679
 
-$ uv run python -m distancia_ao_default avaliar --ticker AAPL | grep -E 'distancia|pd_'
-distancia_ao_default,12.0741
-pd_implicita,0.000000
+$ uv run python -m distance_to_default evaluate --ticker AAPL | grep -E 'distance|implied_pd'
+distance_to_default,12.0741
+implied_pd,0.000000
 
-$ uv run python -m distancia_ao_default avaliar --ticker AMC | grep -E 'distancia|pd_'
-distancia_ao_default,1.0737
-pd_implicita,0.141483
+$ uv run python -m distance_to_default evaluate --ticker AMC | grep -E 'distance|implied_pd'
+distance_to_default,1.0737
+implied_pd,0.141483
 ```
 
-Três tickers reais, rodados de verdade: Apple (baixa alavancagem relativa ao
-market cap) fica com distância-ao-default alta e PD ~0%; Ford (alavancagem
-pesada, braço de financiamento próprio) fica no meio; AMC (historicamente
-estressada) fica com distância abaixo de 1,1 desvio-padrão e PD de ~14% em
-um ano. O modelo discrimina risco de crédito em nomes conhecidos sem ter
-visto rating nenhum.
+Three real tickers, run for real: Apple (low leverage relative to market
+cap) gets a high distance-to-default and PD ~0%; Ford (heavy leverage, its
+own financing arm) lands in the middle; AMC (historically stressed) gets a
+distance below 1.1 standard deviations and a ~14% one-year PD. The model
+discriminates credit risk plausibly across well-known names without having
+seen any rating.
 
-## Problema e escopo
+## Problem and scope
 
-- **Usuário:** eu, e quem revisa o portfólio avaliando para pesquisa
-  quantitativa/risco.
-- **Decisão:** dá pra estimar PD estrutural de qualquer firma pública com
-  ação líquida, sem dado institucional.
-- **Entrada:** `yfinance` — capitalização de mercado, histórico de preço
-  (vol anualizada) e `Total Liabilities Net Minority Interest` do balanço.
-  Taxa livre de risco: FRED `DGS3MO` via Postgres do
+- **User:** me, and whoever reviews the portfolio evaluating for
+  quantitative research/risk.
+- **Decision:** structural PD can be estimated for any public firm with a
+  liquid stock, with no institutional data.
+- **Input:** `yfinance` — market capitalization, price history (annualized
+  vol) and `Total Liabilities Net Minority Interest` from the balance
+  sheet. Risk-free rate: FRED `DGS3MO` via Postgres from
   [`dados-mercado-publico`](../dados-mercado-publico).
-- **Fora de escopo:** SEC EDGAR, convenção KMV completa de dívida (curto
-  prazo + 0,5×longo prazo — este corte usa passivo total), calibração
-  contra taxa de default histórica real, carteira multi-emissor.
+- **Out of scope:** SEC EDGAR, the full KMV debt convention (short-term +
+  0.5×long-term — this cut uses total liabilities), calibration against
+  real historical default rates, multi-issuer portfolios.
 
-## Arquitetura
+## Architecture
 
 ```
 yfinance                          Postgres (dados-mercado-publico)
-    │  equity, vol, passivo            │  DGS3MO via series_vintage
+    │  equity, vol, liabilities        │  DGS3MO via series_vintage
     ▼                                  ▼
-fontes/equity.py                 taxa_livre_risco.py
+sources/equity.py                risk_free_rate.py
     │                                  │
     └──────────────┬───────────────────┘
                     ▼
-               merton.py          resolve o sistema de 2 equações,
-                    │              2 incógnitas por ponto fixo
+               merton.py          solves the 2-equation,
+                    │              2-unknown system by fixed point
                     ▼
-                 cli.py            distância-ao-default, PD
+                 cli.py            distance-to-default, PD
 ```
 
-Duas decisões que valem explicação:
+Two decisions worth explaining:
 
-**Ponto fixo, não Newton multivariado.** O sistema de Merton é 2 equações e
-2 incógnitas (valor e vol dos ativos), mas resolver por Newton bidimensional
-exige montar e invertir um Jacobiano 2×2 numericamente — mais código, mais
-jeito de errar sinal ou derivada parcial. A iteração de ponto fixo
-(Vassalou-Xing/KMV) desacopla: fixa `sigma_V`, acha `V` por bisseção 1D
-(reaproveitando a mesma disciplina do `vol-implicita-spx`), atualiza
-`sigma_V` pela segunda equação, repete. Mais lenta, mais simples de
-verificar linha por linha.
+**Fixed point, not multivariate Newton.** The Merton system is 2 equations
+and 2 unknowns (asset value and asset vol), but solving it with
+two-dimensional Newton requires assembling and inverting a 2×2 Jacobian
+numerically — more code, more room for a sign or partial-derivative error.
+The fixed-point iteration (Vassalou-Xing/KMV) decouples it: fix `sigma_V`,
+find `V` by 1D bisection (reusing the same discipline as
+`vol-implicita-spx`), update `sigma_V` from the second equation, repeat.
+Slower, easier to verify line by line.
 
-**Sem gabarito externo — a verificação é round-trip sintético.** Não existe
-"IV da Yahoo" pra crédito: nenhuma fonte pública publica a PD estrutural de
-uma firma pra comparar. `tests/test_merton.py` gera `E` e `sigma_E` a partir
-de um `(V, sigma_V)` escolhido (o problema direto, que tem forma fechada),
-roda o solver de volta, e confirma que ele recupera o par original — a
-mesma disciplina de precisão numérica, aplicada ao problema inverso.
+**No external ground truth — verification is a synthetic round trip.**
+There's no "Yahoo IV" for credit: no public source publishes a firm's
+structural PD to compare against. `tests/test_merton.py` generates `E` and
+`sigma_E` from a chosen `(V, sigma_V)` (the forward problem, which has a
+closed form), runs the solver backward, and confirms it recovers the
+original pair — the same numerical-precision discipline, applied to the
+inverse problem.
 
-## Executar localmente
+## Run locally
 
-Requisitos: Python 3.12, `uv`, Docker (para o Postgres efêmero dos testes),
-e o [`dados-mercado-publico`](../dados-mercado-publico) rodando com a
-série `DGS3MO` ingerida:
+Requirements: Python 3.12, `uv`, Docker (for the ephemeral test Postgres),
+and [`dados-mercado-publico`](../dados-mercado-publico) running with the
+`DGS3MO` series ingested:
 
 ```bash
-# no dados-mercado-publico:
+# in dados-mercado-publico:
 docker compose up -d
 uv run python -m dados_mercado_publico ingerir --fonte fred --serie DGS3MO
 ```
@@ -106,43 +107,44 @@ uv run python -m dados_mercado_publico ingerir --fonte fred --serie DGS3MO
 ```bash
 uv sync
 cp .env.example .env
-uv run python -m distancia_ao_default avaliar --ticker AAPL
+uv run python -m distance_to_default evaluate --ticker AAPL
 ```
 
-Sem a série `DGS3MO` ingerida, o comando orienta e sai com código 2. Se o
-solver não convergir para uma firma com alavancagem/vol extrema, sai com
-código 1 e mostra os inputs usados, em vez de devolver um número ruim.
+Without the `DGS3MO` series ingested, the command explains why and exits
+with code 2. If the solver doesn't converge for a firm with extreme
+leverage/vol, it exits with code 1 and shows the inputs used, instead of
+returning a bad number.
 
-## Qualidade
+## Quality
 
 ```bash
 uv run python scripts/check.py
 ```
 
-O check executa formatação, lint, tipos e testes com cobertura. É o mesmo
-comando que o CI roda, em Windows, Linux e macOS.
+The check runs format, lint, types and tests with coverage. It's the same
+command CI runs, on Windows, Linux and macOS.
 
-## Estrutura
+## Structure
 
 ```text
-src/distancia_ao_default/
-    merton.py            sistema de Merton e o solver de ponto fixo
-    fontes/equity.py      adaptador yfinance, testável com um ticker falso
-    taxa_livre_risco.py   leitura da interface pública do dados-mercado-publico
-    cli.py                  coordenação
+src/distance_to_default/
+    merton.py             Merton system and the fixed-point solver
+    sources/equity.py     yfinance adapter, testable with a fake ticker
+    risk_free_rate.py     reads the dados-mercado-publico public interface
+    cli.py                coordination
 ```
 
-## Limitações
+## Limitations
 
-- Passivo total do balanço mais recente, não a convenção KMV completa
-  (curto prazo + metade do longo prazo) — superestima a dívida "efetiva"
-  para firma com dívida de longo prazo relevante.
-- Vol de equity histórica (log-retorno de 1 ano), não implícita — mistura
-  regime de vol passado com a estrutura de capital atual.
-- Sem calibração: a PD implícita não foi comparada contra taxa de default
-  histórica real de nenhuma classe de rating. O valor é direcional
-  (discrimina risco relativo entre firmas), não uma probabilidade calibrada.
+- Total liabilities from the most recent balance sheet, not the full KMV
+  convention (short-term + half of long-term) — overstates "effective" debt
+  for firms with significant long-term debt.
+- Historical equity vol (1-year log return), not implied — mixes past vol
+  regime with the current capital structure.
+- No calibration: the implied PD hasn't been compared against real
+  historical default rates for any rating class. The value is directional
+  (discriminates relative risk across firms), not a calibrated probability.
 
-## Licença
+## License
 
-MIT. Dados de terceiros mantêm suas próprias licenças e termos de uso.
+MIT. Third-party data keeps its own license and terms of use.

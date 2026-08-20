@@ -2,34 +2,34 @@ import pandas as pd
 import psycopg
 import pytest
 
-from distancia_ao_default.cli import main
+from distance_to_default.cli import main
 
 
-class _TickerFalso:
-    def __init__(self, *, precos: list[float], balanco: pd.DataFrame) -> None:
+class _FakeTicker:
+    def __init__(self, *, prices: list[float], balance_sheet: pd.DataFrame) -> None:
         self.fast_info = {"marketCap": 50_000.0}
-        self._precos = precos
-        self.balance_sheet = balanco
+        self._prices = prices
+        self.balance_sheet = balance_sheet
 
     def history(self, period: str) -> pd.DataFrame:
-        return pd.DataFrame({"Close": self._precos})
+        return pd.DataFrame({"Close": self._prices})
 
 
-def _ticker_valido() -> _TickerFalso:
-    precos = [100.0 + (i % 5) for i in range(60)]
-    balanco = pd.DataFrame(
+def _valid_ticker() -> _FakeTicker:
+    prices = [100.0 + (i % 5) for i in range(60)]
+    balance_sheet = pd.DataFrame(
         {"2025-12-31": [20_000.0]}, index=["Total Liabilities Net Minority Interest"]
     )
-    return _TickerFalso(precos=precos, balanco=balanco)
+    return _FakeTicker(prices=prices, balance_sheet=balance_sheet)
 
 
 @pytest.fixture(autouse=True)
-def dsn_no_ambiente(monkeypatch: pytest.MonkeyPatch, dsn: str) -> None:
+def dsn_in_environment(monkeypatch: pytest.MonkeyPatch, dsn: str) -> None:
     monkeypatch.setenv("DADOS_MERCADO_PUBLICO_POSTGRES_DSN", dsn)
 
 
-def _semear_taxa(conexao: psycopg.Connection) -> None:
-    conexao.execute(
+def _seed_rate(connection: psycopg.Connection) -> None:
+    connection.execute(
         """
         INSERT INTO series_vintage
             (fonte, serie, data_evento, data_publicacao, vigente_ate, valor,
@@ -40,23 +40,21 @@ def _semear_taxa(conexao: psycopg.Connection) -> None:
     )
 
 
-def test_sem_taxa_ingerida_orienta_e_sai_com_codigo_dois() -> None:
-    assert main(["avaliar", "--ticker", "F"]) == 2
+def test_missing_rate_guides_and_exits_with_code_two() -> None:
+    assert main(["evaluate", "--ticker", "F"]) == 2
 
 
-def test_avaliar_imprime_os_campos_do_modelo(
-    conexao: psycopg.Connection,
+def test_evaluate_prints_the_model_fields(
+    connection: psycopg.Connection,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _semear_taxa(conexao)
-    monkeypatch.setattr(
-        "distancia_ao_default.cli.yf.Ticker", lambda _: _ticker_valido()
-    )
+    _seed_rate(connection)
+    monkeypatch.setattr("distance_to_default.cli.yf.Ticker", lambda _: _valid_ticker())
 
-    codigo = main(["avaliar", "--ticker", "F"])
+    code = main(["evaluate", "--ticker", "F"])
 
-    saida = capsys.readouterr().out
-    assert codigo == 0
-    assert "distancia_ao_default" in saida
-    assert "pd_implicita" in saida
+    output = capsys.readouterr().out
+    assert code == 0
+    assert "distance_to_default" in output
+    assert "implied_pd" in output

@@ -1,32 +1,32 @@
-# Contrato do projeto — Distancia Ao Default
+# Project contract — Distance to Default
 
-Leia o `CLAUDE.md` global e use este arquivo para o que é específico deste
-repositório.
+Read the global `CLAUDE.md` and use this file for what's specific to this
+repository.
 
-## Resultado do produto
+## Product outcome
 
-- **Problema:** PD de firma pública normalmente é caixa-preta (rating de
-  agência) ou classificador estatístico sobre dado tabular de terceiro. O
-  modelo estrutural de Merton/KMV — equity como call sobre o valor dos
-  ativos da firma — conecta credit risk a option pricing de verdade.
-- **Usuário:** eu, e quem revisa o portfólio avaliando para pesquisa
-  quantitativa/risco.
-- **Saída verificável:** para uma empresa e uma data, distância-ao-default e
-  PD implícita (1 ano), via inversão numérica do sistema de Merton (2
-  equações não-lineares, 2 incógnitas: valor e vol dos ativos).
-- **Fonte de dados permitida:** `yfinance` — preço/vol de equity e
-  `Total Liabilities Net Minority Interest` do balanço. Taxa livre de risco:
-  FRED `DGS3MO` via Postgres do `dados-mercado-publico`.
-- **Menor corte ponta a ponta:** CLI que recebe um ticker e devolve
-  distância-ao-default, PD implícita e os inputs usados (valor de equity,
-  vol de equity, passivo total, taxa livre de risco).
-- **Fora de escopo:** SEC EDGAR, convenção KMV completa para dívida
-  (curto prazo + 0.5×longo prazo — este corte usa passivo total), calibração
-  contra taxa de default histórica real, carteira multi-emissor.
+- **Problem:** a public firm's PD is normally a black box (agency rating)
+  or a statistical classifier over third-party tabular data. The structural
+  Merton/KMV model — equity as a call on the firm's asset value — connects
+  credit risk to real option pricing.
+- **User:** me, and whoever reviews the portfolio evaluating for
+  quantitative research/risk.
+- **Verifiable output:** for a company and a date, distance-to-default and
+  implied PD (1 year), via numerical inversion of the Merton system (2
+  non-linear equations, 2 unknowns: asset value and asset vol).
+- **Allowed data source:** `yfinance` — equity price/vol and
+  `Total Liabilities Net Minority Interest` from the balance sheet.
+  Risk-free rate: FRED `DGS3MO` via Postgres from `dados-mercado-publico`.
+- **Smallest end-to-end cut:** a CLI that takes a ticker and returns
+  distance-to-default, implied PD and the inputs used (equity value, equity
+  vol, total liabilities, risk-free rate).
+- **Out of scope:** SEC EDGAR, the full KMV debt convention (short-term +
+  0.5×long-term — this cut uses total liabilities), calibration against
+  real historical default rates, multi-issuer portfolios.
 
-Não implemente enquanto um `PREENCHER` que altere o design continuar em aberto.
+Do not implement while a `FILL_IN` that changes the design is still open.
 
-## Comandos
+## Commands
 
 ```bash
 uv sync
@@ -34,42 +34,43 @@ uv run python scripts/format.py
 uv run python scripts/check.py
 ```
 
-## Regras locais
+## Local rules
 
-- O pacote é `distancia_ao_default` e vive em `src/distancia_ao_default`.
-- Notebook importa de `src/`; código de produção nunca importa notebook.
-- Configuração vem de ambiente por `Settings`.
-- Preserve dado bruto e metadados temporais quando houver ingestão.
-- Atualize este arquivo quando uma decisão estrutural mudar.
+- The package is `distance_to_default` and lives in `src/distance_to_default`.
+- Notebooks import from `src/`; production code never imports a notebook.
+- Configuration comes from the environment via `Settings`.
+- Preserve raw data and time-vintage metadata whenever there's ingestion.
+- Update this file when a structural decision changes.
 
-## Estilo
+## Style
 
-Código público, lido por gente. A regra é contenção — a lista completa está em
-`AGENTS.md`, seção "Style", e vale igual para mim e para o Codex.
+Public code, read by people. The rule is restraint — the full list is in
+`AGENTS.md`, "Style" section, and applies equally to me and to Codex.
 
-- Comentário explica *por quê*, nunca *o quê*. Se parafraseia a linha abaixo,
-  apague; se a linha precisa de paráfrase, renomeie a variável.
-- Docstring só onde a assinatura não basta (unidade, fuso, efeito colateral,
-  o que levanta). Helper privado de três linhas não leva.
-- Teste afirma comportamento que pode quebrar, não constante. Cobertura é
-  consequência de testar o que importa, nunca meta a inflar.
-- Não capture exceção que não sabe tratar; não abstraia com um único chamador.
+- A comment explains *why*, never *what*. If it paraphrases the line below,
+  delete it; if the line needs paraphrasing, rename the variable instead.
+- Docstrings only where the signature isn't enough (unit, timezone, side
+  effect, what it raises). A three-line private helper doesn't need one.
+- Tests assert behavior that can break, not a constant. Coverage is a
+  consequence of testing what matters, never a target to inflate.
+- Don't catch an exception you don't know how to handle; don't abstract for
+  a single caller.
 
-## Autoria dos commits
+## Commit authorship
 
-Autor e committer são um só: o dono do repositório. Nenhum `Co-Authored-By:`,
-nenhum trailer de sessão, nenhuma menção a Claude, Codex ou ferramenta. Não
-altere `user.name` nem `user.email`.
+Author and committer are one and the same: the repository owner. No
+`Co-Authored-By:`, no session trailer, no mention of Claude, Codex or any
+tool. Don't change `user.name` or `user.email`.
 
-## Estado da sessão
+## Session state
 
-- **Decidido:** primeiro corte entregue — CLI `avaliar --ticker` que resolve
-  o sistema de Merton por ponto fixo e devolve distância-ao-default e PD
-  implícita. Validado por round-trip sintético (sem gabarito externo
-  possível para crédito) e por rodada real contra AAPL/F/AMC — discrimina
-  risco de forma plausível (PD ~0% para AAPL, ~14% para AMC).
-- **Pendente:** nada bloqueando; próximos cortes são extensões de escopo.
-- **Próximo passo:** avaliar se vale trocar passivo total pela convenção
-  KMV de dívida (curto prazo + 0,5×longo prazo) ou se calibração contra
-  taxa de default histórica real (SEC EDGAR) é o corte mais valioso.
-
+- **Decided:** first cut delivered — CLI `evaluate --ticker` that solves the
+  Merton system by fixed point and returns distance-to-default and implied
+  PD. Validated by a synthetic round trip (no external ground truth is
+  possible for credit) and by a real run against AAPL/F/AMC — discriminates
+  risk plausibly (PD ~0% for AAPL, ~14% for AMC).
+- **Pending:** nothing blocking; next cuts are scope extensions.
+- **Next step:** evaluate whether to swap total liabilities for the KMV
+  debt convention (short-term + 0.5×long-term), or whether calibration
+  against real historical default rates (SEC EDGAR) is the more valuable
+  cut.
