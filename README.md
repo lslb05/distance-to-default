@@ -52,7 +52,7 @@ seen any rating.
 - **Input:** `yfinance` — market capitalization, price history (annualized
   vol) and `Total Liabilities Net Minority Interest` from the balance
   sheet. Risk-free rate: FRED `DGS3MO` via Postgres from
-  [`dados-mercado-publico`](../dados-mercado-publico).
+  [`public-market-data`](../public-market-data).
 - **Out of scope:** SEC EDGAR, the full KMV debt convention (short-term +
   0.5×long-term — this cut uses total liabilities), calibration against
   real historical default rates, multi-issuer portfolios.
@@ -60,7 +60,7 @@ seen any rating.
 ## Architecture
 
 ```
-yfinance                          Postgres (dados-mercado-publico)
+yfinance                          Postgres (public-market-data)
     │  equity, vol, liabilities        │  DGS3MO via series_vintage
     ▼                                  ▼
 sources/equity.py                risk_free_rate.py
@@ -95,13 +95,13 @@ inverse problem.
 ## Run locally
 
 Requirements: Python 3.12, `uv`, Docker (for the ephemeral test Postgres),
-and [`dados-mercado-publico`](../dados-mercado-publico) running with the
+and [`public-market-data`](../public-market-data) running with the
 `DGS3MO` series ingested:
 
 ```bash
-# in dados-mercado-publico:
+# in public-market-data:
 docker compose up -d
-uv run python -m dados_mercado_publico ingerir --fonte fred --serie DGS3MO
+uv run python -m public_market_data ingest --source fred --series DGS3MO
 ```
 
 ```bash
@@ -130,7 +130,7 @@ command CI runs, on Windows, Linux and macOS.
 src/distance_to_default/
     merton.py             Merton system and the fixed-point solver
     sources/equity.py     yfinance adapter, testable with a fake ticker
-    risk_free_rate.py     reads the dados-mercado-publico public interface
+    risk_free_rate.py     reads the public-market-data public interface
     cli.py                coordination
 ```
 

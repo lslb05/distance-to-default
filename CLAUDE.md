@@ -16,7 +16,7 @@ repository.
   non-linear equations, 2 unknowns: asset value and asset vol).
 - **Allowed data source:** `yfinance` — equity price/vol and
   `Total Liabilities Net Minority Interest` from the balance sheet.
-  Risk-free rate: FRED `DGS3MO` via Postgres from `dados-mercado-publico`.
+  Risk-free rate: FRED `DGS3MO` via Postgres from `public-market-data`.
 - **Smallest end-to-end cut:** a CLI that takes a ticker and returns
   distance-to-default, implied PD and the inputs used (equity value, equity
   vol, total liabilities, risk-free rate).
